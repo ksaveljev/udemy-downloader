@@ -54,14 +54,8 @@ findCourseId page =
 getCourseId :: [Cookie] -> String -> IO String
 getCourseId cookies courseUrl = do
   request <- parseUrl courseUrl
-  response <- withManager $ httpLbs $ configureRequest request cookies
+  response <- withManager $ httpLbs $ request { cookieJar = Just $ createCookieJar cookies }
   return (findCourseId $ responseBody response)
-  where
-    configureRequest :: Request -> [Cookie] -> Request
-    configureRequest request requestCookies =
-      request {
-        cookieJar = Just $ createCookieJar requestCookies
-      }
 
 main :: IO()
 main = do
