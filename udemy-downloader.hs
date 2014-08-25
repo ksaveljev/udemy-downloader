@@ -4,9 +4,12 @@ import Network.HTTP.Conduit
 import Network.HTTP.Types
 import Text.HTML.DOM (parseLBS)
 import Text.XML.Cursor
-import qualified Data.Text
+import qualified Data.Text as T
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy.Char8 as LC8
+import qualified Data.Aeson as A
+import qualified Course
+import qualified Curriculum
 
 getLoginFormUrl :: String
 getLoginFormUrl = "https://www.udemy.com/join/login-popup"
@@ -17,7 +20,7 @@ loginUrl = "https://www.udemy.com/join/login-submit"
 findCsrfToken :: LC8.ByteString -> String
 findCsrfToken page =
   let cursor = fromDocument $ parseLBS page
-  in Data.Text.unpack $ head $ attribute "value" (head $ cursor $// (element "input" >=> attributeIs "name" "csrf"))
+  in T.unpack $ head $ attribute "value" (head $ cursor $// (element "input" >=> attributeIs "name" "csrf"))
 
 getCsrfToken :: IO (String, [Cookie])
 getCsrfToken = do
@@ -49,7 +52,7 @@ signIn username password = do
 findCourseId :: LC8.ByteString -> String
 findCourseId page =
   let cursor = fromDocument $ parseLBS page
-  in Data.Text.unpack $ head $ attribute "data-courseId" (head $ cursor $// (element "div" >=> hasAttribute "data-courseId"))
+  in T.unpack $ head $ attribute "data-courseId" (head $ cursor $// (element "div" >=> hasAttribute "data-courseId"))
 
 getCourseId :: [Cookie] -> String -> IO String
 getCourseId cookies courseUrl = do
@@ -57,12 +60,26 @@ getCourseId cookies courseUrl = do
   response <- withManager $ httpLbs $ request { cookieJar = Just $ createCookieJar cookies }
   return (findCourseId $ responseBody response)
 
+getCourseInfo :: [Cookie] -> String -> IO (Maybe Course.Course)
+getCourseInfo cookies courseId = do
+  request <- parseUrl ("https://www.udemy.com/api-1.1/courses/" ++ courseId)
+  response <- withManager $ httpLbs $ request { cookieJar = Just $ createCookieJar cookies }
+  print (responseBody response)
+  return (A.decode $ responseBody response)
+
+getCourseContent :: [Cookie] -> String -> IO (Maybe Curriculum.CourseContent)
+getCourseContent cookies courseId = do
+  undefined
+
 main :: IO()
 main = do
-  cookies <- signIn "aa@bb.cc" "pass" -- you need to supply correct username/password here
+  --cookies <- signIn "aa@bb.cc" "pass" -- you need to supply correct username/password here
+  cookies <- signIn "ft2000@mail.ru" "trouble" -- you need to supply correct username/password here
   case cookies of
     Just cookies' -> do
       putStrLn "GOOD"
       courseId <- getCourseId cookies' "https://www.udemy.com/official-udemy-instructor-course/" -- you have to take this course
-      print courseId
+      courseInfo <- getCourseInfo cookies' courseId
+      courseContent <- getCourseContent cookies' courseId
+      print courseInfo
     Nothing -> putStrLn "Couldn't authenticate"
