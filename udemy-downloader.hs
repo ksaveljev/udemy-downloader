@@ -135,11 +135,12 @@ downloadEverything downloadableContent =
 
 main :: IO()
 main = do
-  cookies <- signIn "ft2000@mail.ru" "trouble" -- you need to supply correct username/password here
+  cookies <- signIn "aa@bb.cc" "pass" -- you need to supply correct username/password here
   case cookies of
     Just cookies' -> do
       putStrLn "Authenticated!"
-      courseId <- getCourseId cookies' "https://www.udemy.com/official-udemy-instructor-course/" -- you have to take this course
+      --courseId <- getCourseId cookies' "https://www.udemy.com/official-udemy-instructor-course/" -- you have to take this course
+      courseId <- getCourseId cookies' "https://www.udemy.com/surviving-encryption-official-passware-training/" -- you have to take this course
       putStrLn $ "Got CourseId: " ++ courseId
       --courseInfo <- getCourseInfo cookies' courseId -- not used for anything right now
       courseCurriculum <- getCourseCurriculum cookies' courseId
