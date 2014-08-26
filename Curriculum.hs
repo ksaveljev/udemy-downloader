@@ -18,17 +18,17 @@ data Content =
   Lecture { title :: !T.Text
           , objectIndex :: Int
           , isDownloadable :: !T.Text
-          --, asset :: !Asset
+          , asset :: !Asset
           } |
   Quiz { title :: !T.Text
        } deriving (Show)
 
 buildContent :: Value -> T.Text -> Parser Content
-buildContent (Object x) "lecture" = Lecture <$> x .: "title" <*> x .: "objectIndex" <*> x .: "isDownloadable"
+buildContent (Object x) "lecture" = Lecture <$> x .: "title" <*> x .: "objectIndex" <*> x .: "isDownloadable" <*> x .: "asset"
 buildContent (Object x) "chapter" = Chapter <$> x .: "title" <*> x .: "objectIndex"
 buildContent (Object x) "quiz" = Quiz <$> x .: "title"
 buildContent _ _ = fail "Failed to parse Content object"
 
 instance FromJSON Content where
   parseJSON o@(Object x) = join $ (buildContent o) <$> x .: "__class"
-  parseJSON _ = fail "Failed to parse Asset object"
+  parseJSON _ = fail "Failed to parse Content object"

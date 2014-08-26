@@ -68,8 +68,10 @@ getCourseInfo cookies courseId = do
 
 getCourseCurriculum :: [Cookie] -> String -> IO (Maybe Curriculum.Curriculum)
 getCourseCurriculum cookies courseId = do
-  request <- parseUrl ("https://www.udemy.com/api-1.1/courses/" ++ courseId ++ "/curriculum")
-  response <- withManager $ httpLbs $ request { cookieJar = Just $ createCookieJar cookies }
+  request <- parseUrl ("https://www.udemy.com/api-1.1/courses/" ++ courseId ++ "/curriculum") -- ?fields[lecture]=@all&fields[asset]=@all")
+  let queryParams = [("fields[lecture]", Just "@all"), ("fields[asset]", Just "@all")]
+  let request' = setQueryString queryParams request
+  response <- withManager $ httpLbs $ request' { cookieJar = Just $ createCookieJar cookies }
   return (A.decode $ responseBody response)
 
 main :: IO()
