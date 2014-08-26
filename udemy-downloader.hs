@@ -139,8 +139,7 @@ main = do
   case cookies of
     Just cookies' -> do
       putStrLn "Authenticated!"
-      --courseId <- getCourseId cookies' "https://www.udemy.com/official-udemy-instructor-course/" -- you have to take this course
-      courseId <- getCourseId cookies' "https://www.udemy.com/surviving-encryption-official-passware-training/" -- you have to take this course
+      courseId <- getCourseId cookies' "https://www.udemy.com/official-udemy-instructor-course/" -- you have to take this course
       putStrLn $ "Got CourseId: " ++ courseId
       --courseInfo <- getCourseInfo cookies' courseId -- not used for anything right now
       courseCurriculum <- getCourseCurriculum cookies' courseId
