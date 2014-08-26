@@ -5,9 +5,7 @@ module EBookResource where
 import Data.Aeson
 import Control.Applicative
 
-data EBookResource = EBookResource { eBook :: [String]
-                                   , download :: String
-                                   } deriving (Show)
+data EBookResource = EBookResource [String] String deriving (Show)
 
 instance FromJSON EBookResource where
   parseJSON (Object x) = EBookResource <$> x .: "E-Book" <*> x .: "download"

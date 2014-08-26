@@ -11,17 +11,9 @@ import Control.Monad (join)
 
 type Curriculum = [Content]
 
-data Content =
-  Chapter { title :: !T.Text
-          , objectIndex :: Int
-          } |
-  Lecture { title :: !T.Text
-          , objectIndex :: Int
-          , isDownloadable :: !T.Text
-          , asset :: !Asset
-          } |
-  Quiz { title :: !T.Text
-       } deriving (Show)
+data Content = Chapter !T.Text Int
+             | Lecture !T.Text Int !T.Text !Asset
+             | Quiz !T.Text deriving (Show)
 
 buildContent :: Value -> T.Text -> Parser Content
 buildContent (Object x) "lecture" = Lecture <$> x .: "title" <*> x .: "objectIndex" <*> x .: "isDownloadable" <*> x .: "asset"

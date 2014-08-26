@@ -5,9 +5,7 @@ module AudioResource where
 import Data.Aeson
 import Control.Applicative
 
-data AudioResource = AudioResource { audio :: [String]
-                                   , download :: String
-                                   } deriving (Show)
+data AudioResource = AudioResource [String] String deriving (Show)
 
 instance FromJSON AudioResource where
   parseJSON (Object x) = AudioResource <$> x .: "Audio" <*> x .: "download"

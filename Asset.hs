@@ -7,27 +7,16 @@ import Data.Aeson
 import Data.Aeson.Types
 import Control.Applicative
 import Control.Monad (join)
-import qualified AudioResource as AR
-import qualified EBookResource as ER
-import qualified VideoResource as VR
-import qualified VideoMashupResource as VMR
+import AudioResource
+import EBookResource
+import VideoResource
+import VideoMashupResource
 
-data Asset =
-  Article { title :: !T.Text
-          , description :: !T.Text
-          } |
-  EBook { title :: !T.Text
-        , eBookResource :: !ER.EBookResource
-        } |
-  Audio { title :: !T.Text
-        , audioResource :: !AR.AudioResource
-        } |
-  Video { title :: !T.Text
-        , videoResource :: !VR.VideoResource
-        } |
-  VideoMashup { title :: !T.Text
-              , videoMashupResource :: !VMR.VideoMashupResource
-              } deriving (Show)
+data Asset = Article !T.Text !T.Text 
+           | EBook !T.Text !EBookResource
+           | Audio !T.Text AudioResource
+           | Video !T.Text VideoResource
+           | VideoMashup !T.Text VideoMashupResource deriving Show
 
 buildAsset :: Value -> T.Text -> Parser Asset
 buildAsset (Object x) "Audio" = Audio <$> x .: "title" <*> x .: "downloadUrl"

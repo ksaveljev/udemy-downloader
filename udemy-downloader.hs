@@ -1,6 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+import Control.Concurrent.ParallelIO
 import Network.HTTP.Conduit
+import qualified Data.Conduit as C
+import Data.Conduit.Binary (sinkFile)
+import System.FilePath.Posix
+import System.Directory
 import Network.HTTP.Types
 import Text.HTML.DOM (parseLBS)
 import Text.XML.Cursor
@@ -8,14 +13,14 @@ import qualified Data.Text as T
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy.Char8 as LC8
 import qualified Data.Aeson as A
-import qualified Course
-import qualified Curriculum
-
-getLoginFormUrl :: String
-getLoginFormUrl = "https://www.udemy.com/join/login-popup"
-
-loginUrl :: String
-loginUrl = "https://www.udemy.com/join/login-submit"
+import Course
+import Curriculum
+import Asset
+import DownloadableContent
+import EBookResource
+import AudioResource
+import VideoResource
+import VideoMashupResource
 
 findCsrfToken :: LC8.ByteString -> String
 findCsrfToken page =
@@ -24,14 +29,14 @@ findCsrfToken page =
 
 getCsrfToken :: IO (String, [Cookie])
 getCsrfToken = do
-  request <- parseUrl getLoginFormUrl
+  request <- parseUrl "https://www.udemy.com/join/login-popup"
   response <- withManager $ httpLbs request
   return (findCsrfToken $ responseBody response, destroyCookieJar $ responseCookieJar response)
 
 signIn :: String -> String -> IO (Maybe [Cookie])
 signIn username password = do
   (csrfToken, initialCookies) <- getCsrfToken
-  request <- parseUrl loginUrl
+  request <- parseUrl "https://www.udemy.com/join/login-submit"
   response <- withManager $ httpLbs $ configureLoginRequest request initialCookies csrfToken
   case filter (\x -> cookie_name x == "access_token") $ destroyCookieJar $ responseCookieJar response of
     [x] -> return $ Just $ destroyCookieJar $ responseCookieJar response
@@ -60,19 +65,73 @@ getCourseId cookies courseUrl = do
   response <- withManager $ httpLbs $ request { cookieJar = Just $ createCookieJar cookies }
   return (findCourseId $ responseBody response)
 
-getCourseInfo :: [Cookie] -> String -> IO (Maybe Course.Course)
+getCourseInfo :: [Cookie] -> String -> IO (Maybe Course)
 getCourseInfo cookies courseId = do
   request <- parseUrl ("https://www.udemy.com/api-1.1/courses/" ++ courseId)
   response <- withManager $ httpLbs $ request { cookieJar = Just $ createCookieJar cookies }
   return (A.decode $ responseBody response)
 
-getCourseCurriculum :: [Cookie] -> String -> IO (Maybe Curriculum.Curriculum)
+getCourseCurriculum :: [Cookie] -> String -> IO (Maybe Curriculum)
 getCourseCurriculum cookies courseId = do
-  request <- parseUrl ("https://www.udemy.com/api-1.1/courses/" ++ courseId ++ "/curriculum") -- ?fields[lecture]=@all&fields[asset]=@all")
+  request <- parseUrl ("https://www.udemy.com/api-1.1/courses/" ++ courseId ++ "/curriculum")
   let queryParams = [("fields[lecture]", Just "@all"), ("fields[asset]", Just "@all")]
   let request' = setQueryString queryParams request
   response <- withManager $ httpLbs $ request' { cookieJar = Just $ createCookieJar cookies }
   return (A.decode $ responseBody response)
+
+collectDownloadableContent :: (Maybe Curriculum) -> [DownloadableContent]
+collectDownloadableContent (Just curriculum) = processChapters curriculum
+  where
+    chapterToFolderName :: Content -> String
+    chapterToFolderName (Chapter title objectIndex) = (show objectIndex) ++ "." ++ (T.unpack title)
+    chapterToFolderName _ = fail "Only Chapter objects are allowed"
+
+    assetName :: Int -> T.Text -> String
+    assetName lectureIndex assetTitle = (show lectureIndex) ++ "." ++ (T.unpack assetTitle)
+
+    getAssetContent :: String -> Int -> Asset -> [DownloadableContent]
+    getAssetContent _ _ (Article _ _) = [] -- currently we are not interested in this asset
+    getAssetContent chapterName lectureIndex (EBook title (EBookResource _ url)) = [DownloadableContent chapterName (assetName lectureIndex title) url]
+    getAssetContent chapterName lectureIndex (Audio title (AudioResource _ url)) = [DownloadableContent chapterName (assetName lectureIndex title) url]
+    getAssetContent chapterName lectureIndex (Video title (VideoResource _ _ url)) = [DownloadableContent chapterName (assetName lectureIndex title) url]
+    getAssetContent chapterName lectureIndex (VideoMashup title (VideoMashupResource [url] _ _ _)) = [DownloadableContent chapterName (assetName lectureIndex title) url]
+    getAssetContent _ _ _ = fail "For some reason couldn't identify what to download!"
+
+    processLecturesAndQuizzes :: String -> Curriculum -> [DownloadableContent]
+    processLecturesAndQuizzes _ [] = []
+    processLecturesAndQuizzes chapterName (courseContent : otherCourseContent) =
+      case courseContent of
+        (Lecture _ objectIndex _ asset) -> getAssetContent chapterName objectIndex asset ++ processLecturesAndQuizzes chapterName otherCourseContent
+        (Quiz _) -> processLecturesAndQuizzes chapterName otherCourseContent
+        (Chapter _ _) -> []
+
+    processChapters :: Curriculum -> [DownloadableContent]
+    processChapters [] = []
+    processChapters (courseContent : otherCourseContent) =
+      case courseContent of
+        chapter@(Chapter _ _) -> processLecturesAndQuizzes (chapterToFolderName chapter) otherCourseContent ++ processChapters otherCourseContent
+        _ -> processChapters otherCourseContent
+collectDownloadableContent Nothing = fail "Nothing to download"
+
+downloadEverything :: [DownloadableContent] -> IO()
+downloadEverything downloadableContent =
+  let
+    isSafe = not . (`elem` charactersBadForFs)
+    charactersBadForFs = "/\\"
+    download dc = do
+      let file = filter isSafe $ fileName dc
+      let folderName = folder dc
+      let url = downloadUrl dc
+      putStrLn $ "Downloading " ++ file
+      createDirectoryIfMissing True folderName
+      req <- parseUrl url
+      withManager $ \manager -> do
+        response <- http req manager
+        responseBody response C.$$+- sinkFile $ folderName </> file
+      return ()
+  in do
+    parallel_ $ map download downloadableContent
+    stopGlobalPool
 
 main :: IO()
 main = do
@@ -81,7 +140,11 @@ main = do
     Just cookies' -> do
       putStrLn "Authenticated!"
       courseId <- getCourseId cookies' "https://www.udemy.com/official-udemy-instructor-course/" -- you have to take this course
-      courseInfo <- getCourseInfo cookies' courseId
+      putStrLn $ "Got CourseId: " ++ courseId
+      --courseInfo <- getCourseInfo cookies' courseId -- not used for anything right now
       courseCurriculum <- getCourseCurriculum cookies' courseId
-      print courseCurriculum
+      putStrLn "Got Course Curriculum"
+      let downloadableContent = collectDownloadableContent courseCurriculum
+      putStrLn "Let's Download!"
+      downloadEverything downloadableContent
     Nothing -> putStrLn "Couldn't authenticate"
