@@ -1,26 +1,34 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Curriculum where
 
 import qualified Data.Text as T
+import Control.Applicative
 import Data.Aeson
-import GHC.Generics
+import Data.Aeson.Types
 import Asset
+import Control.Monad (join)
 
-newtype CourseContent =
-  CourseContent { courseContent :: [Curriculum] } deriving (Show, Generic)
+type Curriculum = [Content]
 
-data Curriculum =
+data Content =
   Chapter { title :: !T.Text
           , objectIndex :: Int
           } |
   Lecture { title :: !T.Text
           , objectIndex :: Int
           , isDownloadable :: !T.Text
-          , asset :: !Asset
+          --, asset :: !Asset
           } |
   Quiz { title :: !T.Text
-       } deriving (Show, Generic)
+       } deriving (Show)
 
-instance FromJSON Curriculum
-instance FromJSON CourseContent
+buildContent :: Value -> T.Text -> Parser Content
+buildContent (Object x) "lecture" = Lecture <$> x .: "title" <*> x .: "objectIndex" <*> x .: "isDownloadable"
+buildContent (Object x) "chapter" = Chapter <$> x .: "title" <*> x .: "objectIndex"
+buildContent (Object x) "quiz" = Quiz <$> x .: "title"
+buildContent _ _ = fail "Failed to parse Content object"
+
+instance FromJSON Content where
+  parseJSON o@(Object x) = join $ (buildContent o) <$> x .: "__class"
+  parseJSON _ = fail "Failed to parse Asset object"

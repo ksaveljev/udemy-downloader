@@ -64,22 +64,22 @@ getCourseInfo :: [Cookie] -> String -> IO (Maybe Course.Course)
 getCourseInfo cookies courseId = do
   request <- parseUrl ("https://www.udemy.com/api-1.1/courses/" ++ courseId)
   response <- withManager $ httpLbs $ request { cookieJar = Just $ createCookieJar cookies }
-  print (responseBody response)
   return (A.decode $ responseBody response)
 
-getCourseContent :: [Cookie] -> String -> IO (Maybe Curriculum.CourseContent)
-getCourseContent cookies courseId = do
-  undefined
+getCourseCurriculum :: [Cookie] -> String -> IO (Maybe Curriculum.Curriculum)
+getCourseCurriculum cookies courseId = do
+  request <- parseUrl ("https://www.udemy.com/api-1.1/courses/" ++ courseId ++ "/curriculum")
+  response <- withManager $ httpLbs $ request { cookieJar = Just $ createCookieJar cookies }
+  return (A.decode $ responseBody response)
 
 main :: IO()
 main = do
-  --cookies <- signIn "aa@bb.cc" "pass" -- you need to supply correct username/password here
   cookies <- signIn "ft2000@mail.ru" "trouble" -- you need to supply correct username/password here
   case cookies of
     Just cookies' -> do
-      putStrLn "GOOD"
+      putStrLn "Authenticated!"
       courseId <- getCourseId cookies' "https://www.udemy.com/official-udemy-instructor-course/" -- you have to take this course
       courseInfo <- getCourseInfo cookies' courseId
-      courseContent <- getCourseContent cookies' courseId
-      print courseInfo
+      courseCurriculum <- getCourseCurriculum cookies' courseId
+      print courseCurriculum
     Nothing -> putStrLn "Couldn't authenticate"
