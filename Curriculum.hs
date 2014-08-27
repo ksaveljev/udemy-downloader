@@ -22,5 +22,5 @@ buildContent (Object x) "quiz" = Quiz <$> x .: "title"
 buildContent _ _ = fail "Failed to parse Content object"
 
 instance FromJSON Content where
-  parseJSON o@(Object x) = join $ (buildContent o) <$> x .: "__class"
+  parseJSON o@(Object x) = join $ buildContent o <$> x .: "__class"
   parseJSON _ = fail "Failed to parse Content object"

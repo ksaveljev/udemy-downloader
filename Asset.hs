@@ -24,8 +24,8 @@ buildAsset (Object x) "Video" = Video <$> x .: "title" <*> x .: "downloadUrl"
 buildAsset (Object x) "Article" = Article <$> x .: "title" <*> x .: "description"
 buildAsset (Object x) "E-Book" = EBook <$> x .: "title" <*> x .: "downloadUrl"
 buildAsset (Object x) "VideoMashup" = VideoMashup <$> x .: "title" <*> x .: "downloadUrl"
-buildAsset _ blah = fail ("Failed to parse Asset object!" ++ (T.unpack blah))
+buildAsset _ blah = fail ("Failed to parse Asset object!" ++ T.unpack blah)
 
 instance FromJSON Asset where
-  parseJSON o@(Object x) = join $ (buildAsset o) <$> x .: "type"
+  parseJSON o@(Object x) = join $ buildAsset o <$> x .: "type"
   parseJSON _ = fail "Failed to parse Asset object"

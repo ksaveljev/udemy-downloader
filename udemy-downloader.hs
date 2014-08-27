@@ -1,18 +1,22 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-import Control.Concurrent.ParallelIO
-import Network.HTTP.Conduit
-import qualified Data.Conduit as C
-import Data.Conduit.Binary (sinkFile)
-import System.FilePath.Posix
+import Data.List (find)
 import System.Directory
-import Network.HTTP.Types
-import Text.HTML.DOM (parseLBS)
+import System.FilePath.Posix
+import System.Environment (getArgs)
 import Text.XML.Cursor
+import Text.HTML.DOM (parseLBS)
+import Control.Monad (liftM)
+import Control.Concurrent.ParallelIO
+import Network.HTTP.Types
+import Network.HTTP.Conduit
+import Data.Conduit.Binary (sinkFile)
+import qualified Data.Conduit as C
 import qualified Data.Text as T
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy.Char8 as LC8
 import qualified Data.Aeson as A
+
 import Course
 import Curriculum
 import Asset
@@ -38,9 +42,9 @@ signIn username password = do
   (csrfToken, initialCookies) <- getCsrfToken
   request <- parseUrl "https://www.udemy.com/join/login-submit"
   response <- withManager $ httpLbs $ configureLoginRequest request initialCookies csrfToken
-  case filter (\x -> cookie_name x == "access_token") $ destroyCookieJar $ responseCookieJar response of
-    [x] -> return $ Just $ destroyCookieJar $ responseCookieJar response
-    _ -> return Nothing
+  case find (\x -> cookie_name x == "access_token") $ destroyCookieJar $ responseCookieJar response of
+    Just _ -> return $ Just $ destroyCookieJar $ responseCookieJar response
+    Nothing -> return Nothing
 
   where
     formData :: String -> [(C8.ByteString, C8.ByteString)]
@@ -79,15 +83,15 @@ getCourseCurriculum cookies courseId = do
   response <- withManager $ httpLbs $ request' { cookieJar = Just $ createCookieJar cookies }
   return (A.decode $ responseBody response)
 
-collectDownloadableContent :: (Maybe Curriculum) -> [DownloadableContent]
+collectDownloadableContent :: Maybe Curriculum -> [DownloadableContent]
 collectDownloadableContent (Just curriculum) = processChapters curriculum
   where
     chapterToFolderName :: Content -> String
-    chapterToFolderName (Chapter title objectIndex) = (show objectIndex) ++ "." ++ (T.unpack title)
+    chapterToFolderName (Chapter title objectIndex) = show objectIndex ++ "." ++ T.unpack title
     chapterToFolderName _ = fail "Only Chapter objects are allowed"
 
     assetName :: Int -> T.Text -> String
-    assetName lectureIndex assetTitle = (show lectureIndex) ++ "." ++ (T.unpack assetTitle)
+    assetName lectureIndex assetTitle = show lectureIndex ++ "." ++ T.unpack assetTitle
 
     getAssetContent :: String -> Int -> Asset -> [DownloadableContent]
     getAssetContent _ _ (Article _ _) = [] -- currently we are not interested in this asset
@@ -135,13 +139,14 @@ downloadEverything downloadableContent =
 
 main :: IO()
 main = do
-  cookies <- signIn "aa@bb.cc" "pass" -- you need to supply correct username/password here
+  courseUrl <- liftM (!! 0) getArgs -- no validation for supplied input
+  cookies <- signIn "ft2000@mail.ru" "trouble" -- you need to supply correct username/password here
   case cookies of
     Just cookies' -> do
       putStrLn "Authenticated!"
-      courseId <- getCourseId cookies' "https://www.udemy.com/official-udemy-instructor-course/" -- you have to take this course
+      courseId <- getCourseId cookies' courseUrl
       putStrLn $ "Got CourseId: " ++ courseId
-      --courseInfo <- getCourseInfo cookies' courseId -- not used for anything right now
+      courseInfo <- getCourseInfo cookies' courseId -- not used for anything right now
       courseCurriculum <- getCourseCurriculum cookies' courseId
       putStrLn "Got Course Curriculum"
       let downloadableContent = collectDownloadableContent courseCurriculum
