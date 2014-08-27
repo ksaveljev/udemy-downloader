@@ -3,6 +3,10 @@ Udemy downloader
 
 *Download Udemy course files for offline use*
 
+In order for the downloader to work you have to take the course on udemy
+
+    Usage: cabal run -- https://www.udemy.com/official-udemy-instructor-course/
+
 This is just a toy project to learn something new about Haskell. Use some libraries that I have not used before. So far it has been a joyful ride! During the development of this project I learned a lot about these libraries:
 
 * http-conduit
