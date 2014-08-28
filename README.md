@@ -5,6 +5,7 @@ Udemy downloader
 
 **In order for the downloader to work you have to take the course on Udemy**
 
+    cabal sandbox init
     cabal install --only-dependencies
     cabal run -- ft2000@mail.ru https://www.udemy.com/official-udemy-instructor-course/
 ================
