@@ -1,12 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+import System.IO
 import Data.List (find)
 import System.Directory
 import System.FilePath.Posix
 import System.Environment (getArgs)
 import Text.XML.Cursor
 import Text.HTML.DOM (parseLBS)
-import Control.Monad (liftM)
 import Control.Concurrent.ParallelIO
 import Network.HTTP.Types
 import Network.HTTP.Conduit
@@ -165,8 +165,13 @@ downloadEverything downloadableContent =
 
 main :: IO()
 main = do
-  courseUrl <- liftM (!! 0) getArgs -- no validation for supplied input
-  cookies <- signIn "ft2000@mail.ru" "trouble" -- you need to supply correct username/password here
+  args <- getArgs
+  let username = args !! 0 -- no validation for supplied input
+  let courseUrl = args !! 1 -- no validation for supplied input
+  putStr "Password: "
+  hFlush stdout
+  password <- getLine
+  cookies <- signIn username password -- you need to supply correct username/password here
   case cookies of
     Just cookies' -> do
       putStrLn "Authenticated!"
