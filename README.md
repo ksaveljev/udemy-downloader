@@ -6,10 +6,7 @@ Udemy downloader
 **In order for the downloader to work you have to take the course on Udemy**
 
     cabal install --only-dependencies
-    cabal run -- https://www.udemy.com/official-udemy-instructor-course/
-
-Right now username and password are hardcoded into the source. This should be changed in the nearest future.
-
+    cabal run -- ft2000@mail.ru https://www.udemy.com/official-udemy-instructor-course/
 ================
 
 This is just a toy project to learn something new about Haskell. Use some libraries that I have not used before. So far it has been a joyful ride! During the development of this project I learned a lot about these libraries:
